@@ -3,7 +3,7 @@
 # attendeens of the NLP-Workshop of the "GDCP" in Wien
 # using conference abstracts 2012 to 2018
 # @David Buschhüter and Peter Wulff
-# 14.11.2019
+# 27.11.2019
 #################
 
 library(slam)
@@ -17,12 +17,11 @@ library(tidytext)
 library(clue)
 library(textcat)
 
-
 # setting seed for reproducibility
 SEED <- 42
 
 #***************
-# functions ####
+# A. Functions ####
 #***************
 # outputs mean "tf-idf" (mean term frequency inverse document frequency) for a 
 # given document term matrix 
@@ -33,9 +32,11 @@ mean_tfidf_func <- function(DTM){
   tapply(DTM$v/row_sums(DTM)[DTM$i], DTM$j, mean) *
     log2(nDocs(DTM)/col_sums(DTM > 0))
 }
+
 # outputs mean of "mean term frequency" for a given document term matrix
 # 1. for each document with index j:
-#    take the value v of each cell in document-term-frequency (dtm) an divide it by the times the word 
+#    take the value v of each cell in document-term-frequency (dtm) an divide it 
+#    by the times the word 
 #    appears in all documents
 # 2. calculate the mean of that value over all documents j via tapply()
 mtf_func <- function(DTM){tapply(DTM$v/row_sums(DTM)[DTM$i], DTM$j,  mean)}
@@ -45,20 +46,20 @@ mtf_func <- function(DTM){tapply(DTM$v/row_sums(DTM)[DTM$i], DTM$j,  mean)}
 df_func <- function(DTM){col_sums(DTM > 0)/nDocs(DTM)}
 
 # function for cleaning and data preparation
-# it prepares data so than it can be input to functions from the topicmodels package
-# as well as some other packages
+# it prepares data so than it can be input to functions from the topicmodels 
+# package as well as some other packages
 # Values: 
 # 1. a Document Term Matrix
 # 2. a Corpus
 # 3. a Character Vector
-clean_fun <- function(doc_frame = train_data, #input train data
+clean_func <- function(doc_frame = train_data, #input train data
                       words_rm = c("werde", "werden"), #terms to remove
                       str_rm = "z. B.", # one string to remove additionally
                       min_mean_tfidf = 0.01, # minimum mean tf-idf
                       min_df_abs = 2, # minimum number of docs for a word
                       to_lower = TRUE, # lower casing
                       stem_terms = TRUE # stemming
-                      ){
+){
   # making a corpus in the right class
   docs_df <- data.frame(doc_id = doc_frame$doc_id,
                         text = doc_frame$text, 
@@ -74,6 +75,7 @@ clean_fun <- function(doc_frame = train_data, #input train data
     tm_map(removeNumbers) %>% # removing numbers 
     tm_map(removeWords, words_rm) %>% # words in words_rm argument
     tm_map(function(x)gsub(str_rm, " ", x)) %>% # string in str_rm argument
+    tm_map(function(x)gsub("/innen", " ", x)) %>%
     tm_map(function(x)gsub("-", " ", x)) %>% #  "-"
     tm_map(removePunctuation) %>% # punctuation
     tm_map(function(x)gsub("[^[:alnum:]]", " ", x)) %>% # special characters
@@ -99,7 +101,7 @@ clean_fun <- function(doc_frame = train_data, #input train data
   term_tf <- mtf_func(DTM = dtm)
   term_df_abs <- col_sums(dtm > 0)
   term_df <- df_func(DTM = dtm)
-
+  
   # exclude low information terms
   mtfidfframe <- data.frame(NAME = dtm$dimnames$Terms, 
                             term_mtfidf, term_sum = col_sums(dtm),
@@ -128,7 +130,6 @@ clean_fun <- function(doc_frame = train_data, #input train data
   dtm_new <- dtm[,term_mtfidf >= min_mean_tfidf & term_df_abs >= min_df_abs]
   dtm2 <- DocumentTermMatrix(this_corpus2, control=list(tolower=FALSE, 
                                                         stemming = FALSE))
- 
   
   #write output if dtm is in line with corpus
   if(identical(dtm_new, dtm2)){
@@ -137,19 +138,18 @@ clean_fun <- function(doc_frame = train_data, #input train data
     
     #give warning if that was the case
     if(sum(doc_length == 0) > 0){warning(
-      "documents were removed from document term matrix because they were empty after cleaning"
+      "some documents removed from document term matrix because they were empty"
     )}
     
     dtm_new = dtm_new[doc_length > 0,]
     list(dtm_new, this_corpus2, unlist(lapply(this_corpus2, 
                                               FUN = function(x){unlist(x)})))
-  }else{stop("document term matrices not identical. 
-             clean_fun might need to be adjusted")}
+  }else{stop("document term matrices not identical: Please adjust clean_func")}
 }
 
-#************************
-# Text preprocessing ####
-#************************
+#***************************
+# B. Text preprocessing ####
+#***************************
 # loading paths
 machine_path <- getwd()
 text_path <- paste(machine_path, "/text_data_raw/", sep ="")
@@ -168,7 +168,7 @@ places <- read.csv(paste0(other_path, "cities.csv"),
 # clean names from special characters etc.
 places <- unique(c(places$Name, places$Bundesland)) %>%
   removeNumbers() %>% vapply(FUN = function(x){gsub("\\s*\\([^\\)]+\\)","",x)}, 
-         FUN.VALUE = "asdasda")%>%
+                             FUN.VALUE = "asdasda")%>%
   unique()
 places <- append(places,c("Österreich", "Schweiz", "Deutschland"))
 
@@ -185,9 +185,9 @@ docs_raw[, "abs_text"] <- paste(docs_raw$abs_title, docs_raw$abs_text,
 # giving more general names for important coloumns
 colnames(docs_raw)[c(1,5)] <- c("doc_id","text")
 
-#***********************************************************
-# Splitting between train and test data (hold out data) ####
-#***********************************************************
+#****************************************************************
+# C. Splitting between train and test data (hold out data)   ####
+#****************************************************************
 # in this example we are not testing yet if the model is generalizable 
 # to new documents (but we should still not look at the test data because 
 # we still might want to do this analysis as well and we might be biased)
@@ -202,13 +202,19 @@ train_data <- train_data[nchar(train_data[,"abs_author"]) > 10,] #from train set
 docs_raw <- docs_raw[nchar(docs_raw[,"abs_author"]) > 10,] #from all docs
 
 # cleaning documents
-train_clean_dtm_corp_vec <- clean_fun(doc_frame = train_data, 
+train_clean_dtm_corp_vec <- clean_func(doc_frame = train_data, 
                                       words_rm = c("werde", "SuS", "Lehrer",
-                                                   "Lehrerinnen", "Lehrpersonen",
+                                                   "Lehrerinnen", 
+                                                   "Lehrpersonen",
                                                    "wurde", "wurden",
-                                                   "wurd", "sowie", "Ergebnis"
-                                                   ,"Ergebnisse", "Ergebnissen",
-                                                   "Elektronengasmodell",
+                                                   "wurd", "sowie", 
+                                                   "Ergebnis"
+                                                   ,"Ergebnisse", 
+                                                   "Ergebnissen",
+                                                   # the following is the only 
+                                                   # content related word 
+                                                   # removed
+                                                   "Elektronengasmodell", 
                                                    places
                                       ), 
                                       str_rm = "-innen", 
@@ -221,11 +227,11 @@ train_clean_dtm_corp_vec <- clean_fun(doc_frame = train_data,
 dtm_train <- train_clean_dtm_corp_vec[[1]]
 
 #******************************
-#  Topic modeling LDA     #####
+#  D. Topic modeling LDA     #####
 #******************************
-# we found a model with 31 topics to have statisfactory chorence
+# we found a model with 37 topics to have statisfactory chorence
 # (even if not all of them are yet ).
-# Finding a model can be done by just trying out different numbers of topics
+# finding a model can be done by just trying out different numbers of topics
 # or other methods. For further reading and other methods:
 # https://www.r-bloggers.com/cross-validation-of-topic-modelling/
 # https://cran.r-project.org/web/packages/ldatuning/vignettes/topics.html
@@ -236,15 +242,18 @@ K = 37 #number of topics
 # LDA with K topics
 set.seed(42)
 mod_LDA <- LDA(dtm_train, k = K,
-       control = list(seed = SEED))
+               control = list(seed = SEED))
 
-#***********************
-#  Model inspection ####
-#***********************
-# graph shows that the model tends to assign documents to several topics
-# plot maximum topic proprtion for each document
-# (for each document the proportion of the topic appearing the most frequent in 
-# this document)
+#*********************************************
+#  E. Plausibility inspection  of model   ####
+#*********************************************
+# 1. Plot maximum topic proprtion for each document ####
+
+# this means for each document the proportion of the topic appearing 
+# the most frequent in this document
+# the plot shows that there documents which consit mainly of one topic and those
+# that constist of several topics
+
 columns=as.character(c(1:K))
 max_prob <- tidy(mod_LDA, "gamma")%>%
   mutate(document = as.numeric(document))%>%
@@ -257,7 +266,12 @@ ggplot(max_prob,aes(x=max))+
   geom_histogram(bins =100)+
   xlab("Maximum topic proportion")
 
-# summarizing topic proportions X1 to XK
+
+# 2. Creating a table to be inspected for coherence and plausibility of the ####
+#    classification of documents
+
+# summarizing topic proportions X_1 to X_K and joining with other topic
+# informations
 abs <- tidy(mod_LDA, "gamma") %>%
   mutate(document = as.numeric(document))%>%
   left_join(as_tibble(train_data), by = c("document" = "doc_id"))%>%
@@ -265,46 +279,56 @@ abs <- tidy(mod_LDA, "gamma") %>%
   data.frame()%>%
   as_tibble()
 
-# checking for interpretability of the important topics
-# creating an ouput summary for interpretation of topics
-# for every topic it contains most prevalent words and documents with the 
-# highest proportion of this topic
-# documents are not shown if they do not exceed a probability of the value prop
-# regarding this topic
+# Creating the summary table to output as a csv #
+# for every topic it contains 
+# a. most prevalent words and 
+# b. the titles of the documents with the highest proportion of this topic and
+#    the topic proportion probability
+# c. document titles are not shown if they do not exceed a probability of the 
+#    value prop regarding the topic
 
 prop = 0.5 
 mat <- data.frame(terms(mod_LDA, 10))
 if(exists("df_summary")){rm(df_summary)}
 i=0
 for(x in 1:ncol(mat)){
- i = i+1
+  i = i+1
   name_x <- paste0("X", i)
+  # create a dataframe ordered by the probability of the topic i for the 
+  # 10 abstracts with the highest prevalence for this topics
   abs_x <- abs[order(abs[,name_x, drop = TRUE], decreasing = TRUE), 
-      c("abs_title",name_x)]%>%
+               c("abs_title",name_x)]%>%
     slice(1:10)
+  
+  # erase titles and probabilities if needed
   abs_x[abs_x[,2] < prop, "abs_title"] <- "-"
   abs_x[abs_x[,2] < prop, name_x] <- "-"
+  
+  #create df
   df_x <- data.frame(mat[,i], abs_x[,1, drop = TRUE], abs_x[,2, drop = TRUE],
                      stringsAsFactors = FALSE)
+  
+  #giv column names
   colnames(df_x) <- paste(c("terms", "title","prop"), name_x , sep ="")
-  df_x
+  
+  # ceate new data.frame in the first run
+  # bind by columns df_summary and the new df_x  in the next runs
   if(base::exists("df_summary")){
     df_summary <- cbind(df_summary, df_x)
   }else{
     df_summary <- df_x
   }
-  #print(df_summary)
 }
 
-
-dir.create(paste(out_path))
+# creating a path to save the file in
+dir.create(paste(out_path), showWarnings = FALSE)
 out_path_x <- paste0(out_path, "K", K, "/")
-dir.create(paste(out_path_x))
+dir.create(paste(out_path_x), showWarnings = FALSE)
+
+# save the file
 write.csv(df_summary,paste0(out_path_x,"summary.csv"),fileEncoding =  "UTF-8")
 
-#**************************************
-# Outputting all topics for analysis ##
-#**************************************
+# 3. Outputting all topics (word distributions ) for analysis  ####
 # inspect consistency of topics via plots in out_path
 top_terms <- tidy(mod_LDA, matrix = 'beta')%>%
   group_by(topic) %>%
@@ -324,11 +348,8 @@ for(i in x_vec){
     facet_wrap(~ topic, scales = "free") +
     coord_flip() +
     scale_x_reordered()+
-    ylim(c(0,0.3))
+    ylim(c(0,0.5))
   ggsave(filename = paste0(out_path_x, "topic_",i, ".png"),
          plot = topic_plot, 
          width = 8*1.2, height = 4*1.2)
 }
-
-
-
