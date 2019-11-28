@@ -3,6 +3,11 @@ Repository for the workshop attendees of the GDCP 2019
 
 ##
 Currently this repository fits a topic model (Latent Dirichlet Allocation) on a training set of conference abstracts from a German chemistry and physics education conference. We use the package `topicmodels`. 
+
+Description of files
+
+* workshop_gdcp_2019.Rproj: Project for RStudio users (open this one first and install the packages via the use of the packrat.lock-file.
+
 The repository contains two R-files, which can be run in the following order:
 
 * 01_webscraping.R
