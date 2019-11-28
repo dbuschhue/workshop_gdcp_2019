@@ -6,7 +6,7 @@ Currently this repository fits a topic model (Latent Dirichlet Allocation) on a 
 
 Description of files
 
-* workshop_gdcp_2019.Rproj: Project for RStudio users (open this one first and install the packages via the use of the packrat.lock-file.
+* workshop_gdcp_2019.Rproj: Project for RStudio users (open this one first and install the packages via the use of the packrat.lock-file.)
 
 The repository contains two R-files, which can be run in the following order:
 
