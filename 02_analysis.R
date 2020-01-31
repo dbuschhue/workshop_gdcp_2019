@@ -247,6 +247,22 @@ mod_LDA <- LDA(dtm_train, k = K,
 #*********************************************
 #  E. Plausibility inspection  of model   ####
 #*********************************************
+# 0. Save three most important tables
+tidy(mod_LDA, "gamma")%>%
+  as.data.frame(stringAsFactors = FALSE)%>%
+  write.csv(file = paste0(out_path, "topics_in_docs.csv"),
+             fileEncoding = "UTF-8")
+
+tidy(mod_LDA, "beta")%>%
+  as.data.frame(stringAsFactors = FALSE)%>%
+  write.csv(file = paste0(out_path, "words_in_topics.csv"),
+            fileEncoding = "UTF-8")
+
+augment(mod_LDA, data = dtm_train)%>%
+  as.data.frame(stringAsFactors = FALSE)%>%
+  write.csv(file = paste0(out_path, "words.csv"),
+            fileEncoding = "UTF-8")
+
 # 1. Plot maximum topic proprtion for each document ####
 
 # this means for each document the proportion of the topic appearing 
